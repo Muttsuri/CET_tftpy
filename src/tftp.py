@@ -368,7 +368,11 @@ def put_file(server_addr: INET4_Address , filename: str):
                     # Raise protocol error
                     raise ProtocolError(f"Invalid opcode {opcode}")
 
+def get_dir(server: INET4_Address) -> str:
+    raise NotImplementedError
 
+def put_dir(server: INET4_Address) -> str:
+    raise NotImplementedError
 
 def main() -> None :
     # print()
@@ -384,7 +388,7 @@ def main() -> None :
     # filename, mode = unpack_wrq(wrq)
     # print(f"Filename: {filename} Mode: {mode}") 
 
-    file_get = "../test.yaml"
+    file_get = "test.yaml"
     srv = (get_server_info("open-sus")[0],69)
     os.system(f"rm -v {os.path.abspath(file_get)}")
     get_file(srv, file_get)
@@ -392,9 +396,13 @@ def main() -> None :
     # I don't get why "demo.md" works but "../demo.md" doesn't 
     #  especially when "../test.yaml" has the second form
     #  the other file open, changed working dir
-    # TODO : Check this behaviour
-    file_put = "../demo.md"
+    # I figured it out, he can get ../test.yaml but in lands not in here but in the 
+    #   parent folder
+    # But I can't send the file from the parent folder since the file
+    #   is in the current directory
+    file_put = "demo.md"
     put_file(srv, file_put)
+
 
 
 if __name__ == "__main__":
