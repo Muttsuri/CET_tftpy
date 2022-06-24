@@ -6,20 +6,74 @@ import ipaddress
 import re
 import socket
 
-from string import printable
-from enum   import IntEnum, Enum
-from typing import Any, BinaryIO, Callable, Dict, Tuple, Union
+from string            import printable
+from enum              import IntEnum, Enum
+from typing            import Any, BinaryIO, Callable, Dict, Tuple, Union
 from typing_extensions import Self
 
-## Constants and Types
-
-INET4_Address  = Tuple[str, int]      # TCP/UDP address => IPv4 and port
 File_Reference = Union[str, BinaryIO] # A path or a file object
 
+## Constants and Types
 MAX_DATA_LEN       = 512        # bytes
 INACTIVITY_TIMEOUT = 30         # sec
 MAX_BLOCK_NUM      = 2**16 - 1 
 SOCKET_BUFFER_SIZE = 8192       # bytes
+
+class INET4_Address:
+    def __init__(self, ip: str, port: int) -> None:
+        if not self.is_valid_ip(ip):
+            raise ValueError(f"{ip} is not a valid ip address")
+        self.__addr = ip
+        self.__port = port
+
+    @property
+    def addr(self: Self) -> str:
+        return self.__addr
+
+    @property
+    def port(self: Self) -> int:
+        return self.__port
+
+    @property
+    def value(self:Self) -> Tuple[str, int]:
+        return (self.__addr, self.__port)
+
+    # Evil Regex
+    @staticmethod
+    def is_valid_ip(str: str) -> bool:
+        # Recompiling is not much of an issue since re.compile() implements caching
+        #   thus if the regex doesn't change (which it doesn't in this case) the 
+        #   recompilation cost is just the cost of a dictionary lookup.
+        return bool(
+                re
+                .compile(r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
+                .match(str))
+
+    @classmethod
+    def from_tuple(cls, tpl: Tuple[str, int]) -> Self:
+        return cls(tpl[0], tpl[1])
+
+    @classmethod
+    def from_str(cls, str: str) -> Self:
+        """
+        This expects the format `0.0.0.0:00'
+
+        Where:
+
+        0.0.0.0 = IPv4 Address
+        :00     = Port Number
+        """
+        ip, port_str = str.split(":")
+        if not cls.is_valid_ip(ip):
+            raise ValueError(f"{ip} is not a valid IPv4")
+        # formally I should check if port is between 0 and 64
+        try:
+            port = int(port_str)
+        except ValueError:
+            raise ValueError(f"{port_str} is not a valid port number")
+        return cls(ip, port)
+
+
 class TFTP_Mode(Enum):
     octet   = "octet"
     netascii = "netascii" # Nonfunctional as of yet
@@ -218,6 +272,7 @@ class Err(Exception):
 def byte_str(s :str) -> bytes:
     return s.encode('utf-8') + b'\x00'
 
+# TODO: Check if "str.isprintable()" could be used instead
 def is_ascii_printable(txt :str) -> bool:
     return not set(txt) - set(printable)
 
@@ -247,9 +302,8 @@ def get_server_info(server_addr: str) -> Tuple[str, str]:
     """
     Returns the server ip and hostname for server_addr. 
     This param may either be an IP address, in which case this function tries to query its hostname, or vice-versa.
-    This functions raises a ValueError exception if the host name in server_addr is ill-formed, and raises NetworkError if we can't get
+    This functions raises a ValueError exception if  the host name in server_addr is ill-formed, and raises NetworkError if we can't get
     an IP address for that host name.
-    TODO: refactor code...
     """
     try:
         ipaddress.ip_address(server_addr)
@@ -263,7 +317,7 @@ def get_server_info(server_addr: str) -> Tuple[str, str]:
             # (hostname, [aliaslist], [ipaddrlist])
             server_ip = socket.gethostbyname_ex(server_name)[2][0]
         except socket.gaierror:
-            raise NetworkError(f"Unknown server: {server_name}.")
+                raise NetworkError(f"Unknown server: {server_name}.")
     else:  
         # server_addr is a valid ip address, get the hostname
         # if possible
@@ -288,7 +342,7 @@ def get_file(server_addr: INET4_Address , filename: str):
             sock.settimeout(INACTIVITY_TIMEOUT)
             # Send RRQ through socket
             rrq = Request.pack_rrq(filename)
-            sock.sendto(rrq, server_addr)
+            sock.sendto(rrq, server_addr.value)
             next_block_num = 1
             
             while True:
@@ -329,7 +383,7 @@ def put_file(server_addr: INET4_Address , filename: str):
             sock.settimeout(INACTIVITY_TIMEOUT)
             # Send RRQ through socket
             rrq = Request.pack_wrq(filename)
-            sock.sendto(rrq, server_addr)
+            sock.sendto(rrq, server_addr.value)
             current_block_num = 0
             file_size = os.stat(filename).st_size
             if file_size % 512 == 0:
@@ -389,7 +443,7 @@ def main() -> None :
     # print(f"Filename: {filename} Mode: {mode}") 
 
     file_get = "test.yaml"
-    srv = (get_server_info("open-sus")[0],69)
+    srv = INET4_Address.from_tuple((get_server_info("open-sus")[0],69))
     os.system(f"rm -v {os.path.abspath(file_get)}")
     get_file(srv, file_get)
     os.system(f"bat {os.path.abspath(file_get)}")

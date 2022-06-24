@@ -17,10 +17,12 @@ Code by: João Correia, Maria Graça Lopes; 2022
 
 from dataclasses import dataclass
 from enum import Enum
-from operator import truediv
-from socket import socket
 from typing import Dict, Any, Optional
+from typing_extensions import Self
 import docopt
+from cmd import Cmd
+# Cmd uses this optionall for more bash like behaviour
+import readline # type: ignore
 
 import tftp
 
@@ -42,10 +44,60 @@ class Command(Enum):
     dir = "dir"
 
 def is_interactive(args: Dict[str, Any]) -> bool:
-    try:
-        return bool(args.get("get")) or bool(args.get("put"))
-    except ValueError:
-        assert False, "Who touched the docstring ?"
+    return args.get('get') == False and args.get('put') == False
+        
+class UI(Cmd):
+    def __is_connected(self: Self) -> bool:
+        try:
+            _ = self.srv
+            return True
+        except AttributeError:
+            return False
+
+    def do_get(self: Self, inp: str) -> None:
+        if not tftp.is_ascii_printable(inp):
+            print(f"{inp} is not a valid file")
+            return None
+        if not self.__is_connected():
+            self.srv = tftp.INET4_Address.from_str(f"{self.prompt_server()}:69")
+            return None
+        tftp.get_file(self.srv, inp)
+
+    def prompt_server(self) -> Optional[str]:
+        inp = input("(server) ")
+        if inp.strip() == "":
+            self.do_help("connect")
+            return None
+        return inp
+    def do_put(self: Self, inp: str) -> None:
+        pass
+
+    def do_dir(self: Self, inp: str) -> None:
+        print("Not Implemented... Sorry :(")
+
+    def do_connect(self: Self, inp: str) -> None:
+        """
+        Setup a connection to a TFTP server. 
+
+        Usage: connect IP/HOSTNAME port | connect IP/HOSTNAME:PORT    
+        """
+        if inp == "":
+            self.do_help("connect")
+            return None
+        try:
+            srv_info = tftp.get_server_info(inp)
+            self.prompt = f"tftp@{srv_info[0] if srv_info[1] == '' else srv_info[1]} >"
+            self.srv = tftp.INET4_Address(srv_info[0], 69)
+        except ValueError:
+            self.do_help("connect")
+        except tftp.NetworkError as e:
+            print(e)
+
+    def do_quit(self: Self, _):
+        return True
+
+    def do_help(self, arg: str) -> bool | None:
+        return super().do_help(arg)
 
 def cmd(server: tftp.INET4_Address, cmd: Command, file_name: str, outfile_name: Optional[str] ) -> None:
     if Command(cmd) == Command.get:
@@ -54,37 +106,15 @@ def cmd(server: tftp.INET4_Address, cmd: Command, file_name: str, outfile_name: 
         tftp.put_file(server, file_name)
     elif Command(cmd) == Command.dir:
         print(tftp.get_dir(server))
-    
-def user_prompt(state: Any) -> None:
-    print("tftp > ")
-
-def get_input() -> str:
-    pass
-
-def process_input(server: tftp.INET4_Address, imp: str) -> str:
-    pass
-
-def get_server_input() -> str:
-    pass
-
-def execute_cmd() -> None:
-    pass
-
-def interactive(args: Dict[str, Any]) -> None:
-    if args.get("<server>") is None:
-        server : tftp.INET4_Address = (tftp.get_server_info(get_server_input())[0], (69 if args.get("<port>") is None else args.get("<port>")))  
-    else:
-        server = (tftp.get_server_info(args.get("<server>"))[0], (69 if args.get("<port>") is None else args.get("<port>")))  
-
-    while True:
-        user_prompt(None)
-        process_input(server,get_input())
-        execute_cmd()
 
 def main() -> None:
     args = docopt.docopt(str(__doc__), help=True)
     print(args)
     print(is_interactive(args))    
+    if is_interactive(args):
+        ui = UI()
+        ui.prompt = "tftp > "
+        ui.cmdloop()
 
 if __name__ == "__main__":
     main()
