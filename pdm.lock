@@ -1,0 +1,23 @@
+[[package]]
+name = "docopt"
+version = "0.6.2"
+summary = "Pythonic argument parser, that will make you smile"
+
+[[package]]
+name = "typing-extensions"
+version = "4.2.0"
+requires_python = ">=3.7"
+summary = "Backported and Experimental Type Hints for Python 3.7+"
+
+[metadata]
+lock_version = "3.1"
+content_hash = "sha256:69c212cf6bf80530e8d052ebdefd6c9f5c9bd7201cca1a0c0e64eab6a041bc24"
+
+[metadata.files]
+"docopt 0.6.2" = [
+    {file = "docopt-0.6.2.tar.gz", hash = "sha256:49b3a825280bd66b3aa83585ef59c4a8c82f2c8a522dbe754a8bc8d08c85c491"},
+]
+"typing-extensions 4.2.0" = [
+    {file = "typing_extensions-4.2.0-py3-none-any.whl", hash = "sha256:6657594ee297170d19f67d55c05852a874e7eb634f4f753dbd667855e07c1708"},
+    {file = "typing_extensions-4.2.0.tar.gz", hash = "sha256:f1c24655a0da0d1b67f07e17a5e6b2a105894e6824b92096378bb3668ef02376"},
+]
